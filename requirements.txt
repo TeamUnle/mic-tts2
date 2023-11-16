@@ -1,9 +1,18 @@
-<<<<<<< HEAD
 pygame
 requests
 pypresence
-=======
-pygame==2.0.1
-requests==2.31.0
-pypresence==4.2.0
->>>>>>> 8b29f8cce3b71c721312fb6967e13868ba9b32ef
+numba
+librosa
+matplotlib
+numpy
+phonemizer
+scipy
+tensorboard
+torch
+torchvision
+torchaudio
+Unidecode
+pyopenjtalk
+gradio
+googletrans==4.0.0rc1
+pydub

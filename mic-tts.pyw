@@ -1,6 +1,6 @@
 from urllib import parse
 from gtts import gTTS
-import requests, os, pypresence
+import requests, os
 from tkinter import *
 from tkinter.messagebox import showerror
 from tkinter.ttk import Combobox
@@ -14,15 +14,11 @@ from pygame import mixer
 
 import json
 from os import path
-import re
-import librosa
 import numpy as np
 import ctypes
-import torch
 import pydub
 from torch import no_grad, LongTensor
 
-import gradio as gr
 
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('com.app.mictts')
 
