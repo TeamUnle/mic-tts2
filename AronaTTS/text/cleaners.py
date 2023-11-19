@@ -1,7 +1,7 @@
 import re
 
 def japanese_cleaners(text):
-    from text.japanese import japanese_to_romaji_with_accent
+    from AronaTTS.text.japanese import japanese_to_romaji_with_accent
     text = japanese_to_romaji_with_accent(text)
     if len(text) == 0 or re.match('[A-Za-z]', text[-1]):
         text += '.'

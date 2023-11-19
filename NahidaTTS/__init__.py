@@ -2,11 +2,11 @@ import numpy as np
 import pydub
 from torch import no_grad, LongTensor
 
-from AronaTTS import utils
-from AronaTTS.models import SynthesizerTrn
-from AronaTTS.text import text_to_sequence, _clean_text
-from AronaTTS.mel_processing import spectrogram_torch
-from AronaTTS import commons
+
+from NahidaTTS import utils
+from NahidaTTS.models import SynthesizerTrn
+from NahidaTTS.text import text_to_sequence
+from NahidaTTS import commons
 
 def get_text(text, hps, is_phoneme):
     text_norm = text_to_sequence(text, hps.symbols, [] if is_phoneme else hps.data.text_cleaners)
@@ -53,7 +53,6 @@ def get_tts(model_path, config_path):
     utils.load_checkpoint(model_path, model, None)
     model.eval()
     return create_tts_fn(model, hps, [0])
-    
 
 __all__ = [
     "get_tts"

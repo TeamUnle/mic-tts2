@@ -4,7 +4,6 @@ import requests, os
 from tkinter import *
 from tkinter.messagebox import showerror
 from tkinter.ttk import Combobox
-from googletrans import Translator
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
@@ -22,65 +21,18 @@ from torch import no_grad, LongTensor
 
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('com.app.mictts')
 
-from AronaTTS import *
+from AronaTTS import get_tts as get_arona_tts
+from AronaTTS2 import get_tts as get_arona2_tts
+from NahidaTTS import get_tts as get_nahida_tts
 
 TTS_LIST = [
     'google',
     'kakao',
-    'arona'
+    'arona',
+    'arona2',
+    'nahida'
 ]
 TTS_SELECTED = 0
-
-trans = Translator()
-
-max_length = 1000
-limitation = False
-name = '아로나(アロナ) TTS'
-lang = '日本語 (Japanese)'
-
-def get_text(text, hps, is_phoneme):
-    text_norm = text_to_sequence(text, hps.symbols, [] if is_phoneme else hps.data.text_cleaners)
-    if hps.data.add_blank:
-        text_norm = commons.intersperse(text_norm, 0)
-    text_norm = LongTensor(text_norm)
-    return text_norm
-
-
-def create_tts_fn(model, hps, speaker_ids):
-    def tts_fn(text, speaker, speed, is_phoneme):
-        if limitation:
-            text_len = len(text)
-            max_len = max_length
-            if text_len > max_len:
-                return 'Error: Text is too long', None
-
-        speaker_id = speaker_ids[speaker]
-        stn_tst = get_text(text, hps, is_phoneme)
-        with no_grad():
-            x_tst = stn_tst.unsqueeze(0)
-            x_tst_lengths = LongTensor([stn_tst.size(0)])
-            sid = LongTensor([speaker_id])
-            audio = model.infer(x_tst, x_tst_lengths, sid=sid, noise_scale=.667, noise_scale_w=0.8,
-                                length_scale=1.0 / speed)[0][0, 0].data.cpu().float().numpy()
-        del stn_tst, x_tst, x_tst_lengths, sid
-        
-        # convert to 16-bit wav
-        audio = audio.astype(np.float32)
-        audio = audio / np.max(np.abs(audio))
-        audio = audio * 32767 * 0.9
-        audio = audio.astype(np.int16)
-        # conver wav to mp3
-        audio = pydub.AudioSegment(audio.tobytes(), frame_rate=hps.data.sampling_rate, sample_width=2, channels=1)
-        audio = audio.set_frame_rate(24000)
-        audio = audio.set_channels(1)
-        audio = audio.set_sample_width(2)
-        # can i change bitrate to 32kbps?
-        audio.export('tts.mp3', format='mp3', bitrate='32k')
-        
-        #return 'Success', (hps.data.sampling_rate, audio)
-
-    return tts_fn
-
 
 def create_to_phoneme_fn(hps):
     def to_phoneme_fn(text):
@@ -88,23 +40,20 @@ def create_to_phoneme_fn(hps):
 
     return to_phoneme_fn
 
-folder = path.join(path.dirname(path.realpath(__file__)), 'AronaTTS', 'saved_model')
-config_path = path.join(folder, 'config.json')
-model_path = path.join(folder, 'model.pth')
-cover_path = path.join(folder, 'cover.png')
-hps = utils.get_hparams_from_file(config_path)
-model = SynthesizerTrn(
-    len(hps.symbols),
-    hps.data.filter_length // 2 + 1,
-    hps.train.segment_size // hps.data.hop_length,
-    n_speakers=hps.data.n_speakers,
-    **hps.model)
-utils.load_checkpoint(model_path, model, None)
-model.eval()
-speaker_ids = [0]
-speakers = [name]
-arona_tts = create_tts_fn(model, hps, speaker_ids)
+arona_folder = path.join(path.dirname(path.realpath(__file__)), 'AronaTTS', 'saved_model')
+arona_config = path.join(arona_folder, 'config.json')
+arona_model_path = path.join(arona_folder, 'model.pth')
+arona_tts = get_arona_tts(arona_model_path, arona_config)
 
+arona2_folder = path.join(path.dirname(path.realpath(__file__)), 'AronaTTS2', 'pretrained_model')
+arona2_config = path.join(arona2_folder, 'config.json')
+arona2_model_path = path.join(arona2_folder, 'model.pth')
+arona2_tts = get_arona2_tts(arona2_model_path, arona2_config)
+
+nahida_folder = path.join(path.dirname(path.realpath(__file__)), 'NahidaTTS', 'saved_model')
+nahida_config = path.join(nahida_folder, 'config.json')
+nahida_model_path = path.join(nahida_folder, 'model.pth')
+nahida_tts = get_nahida_tts(nahida_model_path, nahida_config)
 
 pygame.init()
 
@@ -197,20 +146,19 @@ def tts(event):
                 print(err)
                 showerror('에러', '음성을 생성할 수 없습니다!\ngoogle로 대체됨')
                 TTS_SELECTED = TTS_LIST.index('google')
-                tts(event)
+                globals()['tts'](event)
                 return
         elif ctts == 'arona':
-            res = trans.detect(text)
-            if res.lang != 'ja':
-                print('need translate')
-                text = trans.translate(text, dest='ja').text
-            arona_tts(text, speakers.index(name), 1, False)
+            arona_tts(text, 0, 1, os.path.join('.', 'tts.mp3'))
+        elif ctts == 'arona2':
+            arona2_tts(text, 0, 1, os.path.join('.', 'tts.mp3'))
+        elif ctts == 'nahida':
+            nahida_tts(text, 0, 1, os.path.join('.', 'tts.mp3'))
         else:
             showerror('에러', '올바른 tts를 선택하세요!')
             return
     except Exception as e:
         raise e
-        print(e)
         showerror('에러', '음성을 생성할 수 없습니다!')
         return
     if not path.isfile('tts.mp3'):
@@ -221,10 +169,8 @@ def tts(event):
         return
     play_sound('tts.mp3')
     history_box.insert(0, text)
-    history_box.delete(10, END)
     entry.delete(0, END)
     entry.insert(0, '')
-    init_list()
 
 def stop():
     mixer.music.stop()
@@ -244,9 +190,10 @@ scrollbar.pack(side='right', fill='y')
 list_box = Listbox(frame, width=40, height=30, yscrollcomma=scrollbar.set)
 
 def init_list():
-    global list_box
+    global list_box, history_box
     files = list(map(lambda x: os.path.splitext(x)[0], os.listdir('./sounds/')))
     list_box.delete(0, END)
+    history_box.delete(0, END)
     if not len(files):
         list_box.insert(0, 'None')
     else:
@@ -334,8 +281,7 @@ def open_sel_window():
     
 def open_sel_tts_window():
     global TTS_WIN_OPEN, TTS_SELECTED
-    if TTS_WIN_OPEN:
-        return
+    
     TTS_WIN_OPEN = True
     sel_window = Toplevel(window)
     sel_window.wm_transient(window)

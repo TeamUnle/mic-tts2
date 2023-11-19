@@ -1,0 +1,15 @@
+numba
+librosa
+matplotlib
+numpy
+phonemizer
+scipy
+tensorboard
+ko-pron
+jamo
+torch
+torchvision
+torchaudio
+Unidecode
+pyopenjtalk
+gradio

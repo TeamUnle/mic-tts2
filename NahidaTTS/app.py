@@ -1,6 +1,7 @@
 import json
 import os
 import re
+
 import librosa
 import numpy as np
 import torch
@@ -10,11 +11,10 @@ import utils
 import gradio as gr
 from models import SynthesizerTrn
 from text import text_to_sequence, _clean_text
-from AronaTTS.mel_processing import spectrogram_torch
+from mel_processing import spectrogram_torch
 
 limitation = os.getenv("SYSTEM") == "spaces"  # limit text and audio length in huggingface spaces
 
-max_length = 1000
 
 def get_text(text, hps, is_phoneme):
     text_norm = text_to_sequence(text, hps.symbols, [] if is_phoneme else hps.data.text_cleaners)
@@ -28,7 +28,12 @@ def create_tts_fn(model, hps, speaker_ids):
     def tts_fn(text, speaker, speed, is_phoneme):
         if limitation:
             text_len = len(text)
-            max_len = max_length
+            max_len = 700
+            if is_phoneme:
+                max_len *= 3
+            else:
+                if len(hps.data.text_cleaners) > 0 and hps.data.text_cleaners[0] == "zh_ja_mixture_cleaners":
+                    text_len = len(re.sub("(\[ZH\]|\[JA\])", "", text))
             if text_len > max_len:
                 return "Error: Text is too long", None
 
@@ -51,8 +56,8 @@ def create_to_phoneme_fn(hps):
         return _clean_text(text, hps.data.text_cleaners) if text != "" else ""
 
     return to_phoneme_fn
-
-
+    
+    
 css = """
         #advanced-btn {
             color: white;
@@ -71,12 +76,11 @@ css = """
         }
 """
 
-
 if __name__ == '__main__':
     models_tts = []
-    name = '아로나(アロナ) TTS'
-    lang = '日本語 (Japanese)'
-    example = 'おはようございます、先生。'
+    name = 'NahidaTTS'
+    lang = '한국어 (Korean)'
+    example = '전부 다 보인다구'
     config_path = f"saved_model/config.json"
     model_path = f"saved_model/model.pth"
     cover_path = f"saved_model/cover.png"
@@ -94,30 +98,59 @@ if __name__ == '__main__':
 
     t = 'vits'
     models_tts.append((name, cover_path, speakers, lang, example,
-                        create_tts_fn(model, hps, speaker_ids),
+                        hps.symbols, create_tts_fn(model, hps, speaker_ids),
                         create_to_phoneme_fn(hps)))
-
+                               
     app = gr.Blocks(css=css)
 
     with app:
-        gr.Markdown("![visitor badge](https://visitor-badge.glitch.me/badge?page_id=kdrkdrkdr.AronaTTS)\n\n")
+        gr.Markdown("# Genshin Impact NahidaTTS Using Vits Model\n"
+                    "![visitor badge](https://visitor-badge.glitch.me/badge?page_id=ORI-Muchim.NahidaTTS)\n\n")
         
-        for i, (name, cover_path, speakers, lang, example, tts_fn, to_phoneme_fn) in enumerate(models_tts):
+        for i, (name, cover_path, speakers, lang, example, symbols, tts_fn,
+                to_phoneme_fn) in enumerate(models_tts):
 
             with gr.Column():
                 gr.Markdown(f"## {name}\n\n"
                             f"![cover](file/{cover_path})\n\n"
                             f"lang: {lang}")
-                tts_input1 = gr.TextArea(label=f"Text ({max_length} words limitation)", value=example,
+                tts_input1 = gr.TextArea(label="Text (700 words limitation)", value=example,
                                             elem_id=f"tts-input{i}")
                 tts_input2 = gr.Dropdown(label="Speaker", choices=speakers,
                                             type="index", value=speakers[0])
-                tts_input3 = gr.Slider(label="Speed", value=1, minimum=0.5, maximum=2, step=0.1)
-                
+                tts_input3 = gr.Slider(label="Speed", value=1, minimum=0.1, maximum=2, step=0.1)
+                with gr.Accordion(label="Advanced Options", open=False):
+                    phoneme_input = gr.Checkbox(value=False, label="Phoneme input")
+                    to_phoneme_btn = gr.Button("Covert text to phoneme")
+                    phoneme_list = gr.Dataset(label="Phoneme list", components=[tts_input1],
+                                                samples=[[x] for x in symbols],
+                                                elem_id=f"phoneme-list{i}")
+                    phoneme_list_json = gr.Json(value=symbols, visible=False)
                 tts_submit = gr.Button("Generate", variant="primary")
                 tts_output1 = gr.Textbox(label="Output Message")
-                tts_output2 = gr.Audio(label="Output Audio", elem_id="tts-audio")
-                tts_submit.click(tts_fn, inputs=[tts_input1, tts_input2, tts_input3],
-                                    outputs=[tts_output1, tts_output2], api_name="tts")
-                
-    app.queue().launch(server_name = "0.0.0.0")
+                tts_output2 = gr.Audio(label="Output Audio")
+                tts_submit.click(tts_fn, [tts_input1, tts_input2, tts_input3, phoneme_input],
+                                    [tts_output1, tts_output2])
+                to_phoneme_btn.click(to_phoneme_fn, [tts_input1], [tts_input1])
+                phoneme_list.click(None, [phoneme_list, phoneme_list_json], [],
+                                    js=f"""
+                (i,phonemes) => {{
+                    let root = document.querySelector("body > gradio-app");
+                    if (root.shadowRoot != null)
+                        root = root.shadowRoot;
+                    let text_input = root.querySelector("#tts-input{i}").querySelector("textarea");
+                    let startPos = text_input.selectionStart;
+                    let endPos = text_input.selectionEnd;
+                    let oldTxt = text_input.value;
+                    let result = oldTxt.substring(0, startPos) + phonemes[i] + oldTxt.substring(endPos);
+                    text_input.value = result;
+                    let x = window.scrollX, y = window.scrollY;
+                    text_input.focus();
+                    text_input.selectionStart = startPos + phonemes[i].length;
+                    text_input.selectionEnd = startPos + phonemes[i].length;
+                    text_input.blur();
+                    window.scrollTo(x, y);
+                    return [];
+                }}""")
+
+    app.launch(share=True)

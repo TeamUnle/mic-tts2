@@ -3,14 +3,14 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from AronaTTS import commons
-from AronaTTS import modules
-from AronaTTS import attentions
-from AronaTTS import monotonic_align
+from NahidaTTS import commons
+from NahidaTTS import modules
+from NahidaTTS import attentions
+from NahidaTTS import monotonic_align
 
 from torch.nn import Conv1d, ConvTranspose1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
-from AronaTTS.commons import init_weights, get_padding
+from NahidaTTS.commons import init_weights, get_padding
 
 
 class StochasticDurationPredictor(nn.Module):

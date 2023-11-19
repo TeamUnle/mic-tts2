@@ -9,9 +9,9 @@ from torch.nn import functional as F
 from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm
 
-from AronaTTS import commons
-from AronaTTS.commons import init_weights, get_padding
-from AronaTTS.transforms import piecewise_rational_quadratic_transform
+from NahidaTTS import commons
+from NahidaTTS.commons import init_weights, get_padding
+from NahidaTTS.transforms import piecewise_rational_quadratic_transform
 
 
 LRELU_SLOPE = 0.1
